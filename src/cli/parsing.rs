@@ -1,6 +1,6 @@
 use crate::cli::Subcommands;
 use crate::config::Settings;
-use crate::files::{self, get_lists, get_tasks};
+use crate::files::{self, create_list, delete_list, get_lists, get_tasks};
 
 use super::{select, use_style};
 
@@ -12,8 +12,7 @@ pub fn parse_args(subcmd: Subcommands, config: Settings) {
         Subcommands::Tasks(list) => tasks(list, config),
         Subcommands::AddList(list) => add_list(list, config),
         Subcommands::RemoveList(list) => remove_list(list, config),
-        Subcommands::Change(list) => change(list, config),
-        Subcommands::Lists => lists(),
+        Subcommands::Lists => lists(config),
     }
 }
 
@@ -53,6 +52,7 @@ pub fn remove(task: Option<String>, list: Option<String>, config: Settings) {
                 Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
             }
         }
+        //TODO Проверять пустой ли список и если пустой, то не выводить его
         _ => {
             let mut lists = get_lists();
             lists.push("All".to_string());
@@ -60,16 +60,15 @@ pub fn remove(task: Option<String>, list: Option<String>, config: Settings) {
             let list = &select(lists, Vec::new()).unwrap()[0];
 
             let list = if list == "All" {
-                &config.default_list
+                unimplemented!() //TODO
             } else {
                 list
             };
 
-            let tasks = select(
-                get_tasks(
-                    Some(list)
-                )
-                .unwrap()
+            let tasks = get_tasks(Some(list), false).unwrap();
+
+            let tasks = select (
+                tasks
                 .into_iter()
                 .map(|task| task.name)
                 .collect(),
@@ -106,7 +105,7 @@ pub fn check(task: Option<String>, list: Option<String>, config: Settings) {
 }
 
 pub fn tasks(list: Option<String>, config: Settings) {
-    match files::get_tasks(list.as_deref()) {
+    match files::get_tasks(list.as_deref(), true) {
         Ok(tasks) => {
             tasks.iter().for_each(|task| println!("{}", use_style(task.to_string(), &config.output.text)));
         }
@@ -117,21 +116,19 @@ pub fn tasks(list: Option<String>, config: Settings) {
 }
 
 pub fn add_list(list: Option<String>, config: Settings) {
-    println!("Creating list {:#?}", list);
-    todo!()
+    match create_list(&list.unwrap()) {
+        Ok(_) => println!("{}", use_style("List added".to_string(), &config.output.text)),
+        Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
+    }
 }
 
 pub fn remove_list(list: Option<String>, config: Settings) {
-    println!("Removing list {:#?}", list);
-    todo!()
+    match delete_list(&list.unwrap()) {
+        Ok(_) => println!("{}", use_style("List removed".to_string(), &config.output.text)),
+        Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
+    }
 }
 
-pub fn change(list: Option<String>, config: Settings) {
-    println!("Changing list {:#?}", list);
-    todo!()
-}
-
-pub fn lists() {
-    println!("Listing lists");
-    todo!()
+pub fn lists(config: Settings) {
+    get_lists().iter().for_each(|task| println!("{}", use_style(task.to_string(), &config.output.text)));
 }
