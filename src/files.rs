@@ -266,13 +266,27 @@ pub fn check_dir() {
 
     if !file_dir.exists() {
         std::fs::create_dir(&file_dir).expect("Unable to create directory");
-        file_dir.push("config.toml");
-        std::fs::write(&file_dir, "default_list = \"default\"").expect("Unable to create file"); //TODO Реализовать трейт Default
-                                                                                                                    //для конфига и записывать стандартный конфиг в файл
-        file_dir.pop();
-        file_dir.push("default.jsonl");
-        std::fs::write(file_dir, "").expect("Unable to create file");
     }
+
+    file_dir.push("config.toml");
+
+    if !file_dir.exists() {
+        let config = crate::config::Settings::default();
+        std::fs::write(
+            &file_dir,
+            toml::to_string(&config).expect("Failed to serialize config")
+        ).expect("Unable to create file");
+    }
+    file_dir.pop();
+
+    file_dir.push("tasks.json");
+
+    if !file_dir.exists() {
+        std::fs::write(file_dir, "{}").expect("Unable to create file");
+    }
+
+
+
 }
 
 fn get_dir() -> PathBuf {

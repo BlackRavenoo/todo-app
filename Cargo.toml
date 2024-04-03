@@ -16,6 +16,7 @@ clap = { version = "4", features = ["derive", "cargo", "string"] }
 dirs = "5"
 colored = "2"
 config = "0.14"
+toml = "0.8"
 
 [dev-dependencies]
 assert_cmd = "2"
