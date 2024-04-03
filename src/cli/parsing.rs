@@ -65,7 +65,7 @@ pub fn remove(task: Option<String>, list: Option<String>, config: Settings) {
                 list
             };
 
-            let tasks = get_tasks(Some(list), false).unwrap();
+            let tasks = get_tasks(Some(list)).unwrap();
 
             let tasks = select (
                 tasks
@@ -105,12 +105,30 @@ pub fn check(task: Option<String>, list: Option<String>, config: Settings) {
 }
 
 pub fn tasks(list: Option<String>, config: Settings) {
-    match files::get_tasks(list.as_deref(), true) {
-        Ok(tasks) => {
-            tasks.iter().for_each(|task| println!("{}", use_style(task.to_string(), &config.output.text)));
+    match list {
+        Some(list) => {
+            match files::get_tasks(Some(&list)) {
+                Ok(tasks) => {
+                    tasks.iter().for_each(|task| println!("{}", use_style(task.to_string(), &config.output.text)));
+                }
+                Err(e) => {
+                    eprintln!("{}", use_style(e, &config.output.err))
+                }
+            }
         }
-        Err(e) => {
-            eprintln!("{}", use_style(e, &config.output.err))
+        None => {
+            get_lists().iter().for_each(|list| {
+                let tasks = get_tasks(Some(list)).unwrap();
+                if !tasks.is_empty() {
+                    println!("{}", use_style(
+                        format!("[{}]", list).to_string(),
+                        &config.output.list
+                    ));
+                    tasks.iter().for_each(|task| {
+                        println!("{}", use_style(task.to_string(), &config.output.text));
+                    });
+                }
+            })
         }
     }
 }

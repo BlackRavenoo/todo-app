@@ -101,7 +101,6 @@ pub fn delete_list(list: &str) -> Result<(), String> {
 pub fn get_lists() -> Vec<String> {
     get_file_data().keys().map(|x| x.to_string()).collect()
 }
-//TODO
 
 pub fn add_task(task: &str, list: &str) -> Result<(), String> {
     let mut data = get_file_data();
@@ -122,10 +121,6 @@ pub fn add_task(task: &str, list: &str) -> Result<(), String> {
     }
 }
 
-//TODO: todo-app remove
-//Если задание не найдено в указанном списке, то начать поиск по другим.
-//Если в других списках найдено больше 1 подходящего задания,
-//то вывести их в stdout и попросить пользователя указать номер.
 pub fn remove_task(task: &str, list: &str) -> Result<(), String> {
     let mut data = get_file_data();
 
@@ -244,7 +239,7 @@ pub fn check_task(task: &str, list: Option<&str>) -> Result<bool, String> {
 }
 
 
-pub fn get_tasks(list: Option<&str>, with_list_name: bool) -> Result<Vec<Task>, String> {
+pub fn get_tasks(list: Option<&str>) -> Result<Vec<Task>, String> {
     let data = get_file_data();
 
     match list {
@@ -257,11 +252,7 @@ pub fn get_tasks(list: Option<&str>, with_list_name: bool) -> Result<Vec<Task>, 
         }
         None => {
             let mut tasks: Vec<Task> = Vec::new();
-            for (list, tasks_) in data.iter() {
-                //TODO push list name 
-                // if with_list_name {
-                //     tasks.extend();
-                // }
+            for (_, tasks_) in data.iter() {
                 tasks.extend(tasks_.clone());
             }
             Ok(tasks)

@@ -10,7 +10,8 @@ pub struct Settings {
 #[derive(Deserialize, Debug)]
 pub struct OutputSettings {
     pub text: TextSettings,
-    pub err: TextSettings
+    pub err: TextSettings,
+    pub list: TextSettings,
 }
 
 #[derive(Deserialize, Debug)]
