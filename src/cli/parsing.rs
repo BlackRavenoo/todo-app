@@ -2,7 +2,7 @@ use crate::cli::Subcommands;
 use crate::config::Settings;
 use crate::files::{self, create_list, delete_list, get_lists, get_tasks};
 
-use super::{select, use_style};
+use super::{parse_with_fzf, use_style};
 
 pub fn parse_args(subcmd: Subcommands, config: Settings) {
     match subcmd {
@@ -52,34 +52,13 @@ pub fn remove(task: Option<String>, list: Option<String>, config: Settings) {
                 Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
             }
         }
-        //TODO Проверять пустой ли список и если пустой, то не выводить его
         _ => {
-            let mut lists = get_lists();
-            lists.push("All".to_string());
-
-            let list = &select(lists, Vec::new()).unwrap()[0];
-
-            let list = if list == "All" {
-                unimplemented!() //TODO
-            } else {
-                list
-            };
-
-            let tasks = get_tasks(Some(list)).unwrap();
-
-            let tasks = select (
-                tasks
-                .into_iter()
-                .map(|task| task.name)
-                .collect(),
-                vec!["-m".to_string()]
-            )
-            .unwrap();
+            let tasks = parse_with_fzf();
 
             let len = tasks.len();
             
-            for task in tasks {
-                files::remove_task(&task, list).unwrap();
+            for (list, task) in tasks {
+                files::remove_task(&task, &list).unwrap();
             }
 
             if len == 1 {
@@ -92,15 +71,36 @@ pub fn remove(task: Option<String>, list: Option<String>, config: Settings) {
 }
 
 pub fn check(task: Option<String>, list: Option<String>, config: Settings) {
-    match task {
-        Some(task) => {
-            match files::check_task(&task, list.as_deref()) {
+    match (task, list) {
+        (Some(task), None) => {
+            match files::check_task(&task, &config.default_list) {
                 Ok(true) => println!("{}", use_style("Task checked".to_string(), &config.output.text)),
                 Ok(false) => println!("{}", use_style("Task unchecked".to_string(), &config.output.text)),
                 Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
             }
         }
-        None => unreachable!()
+        (Some(task), Some(list)) => {
+            match files::check_task(&task, &list) {
+                Ok(true) => println!("{}", use_style("Task checked".to_string(), &config.output.text)),
+                Ok(false) => println!("{}", use_style("Task unchecked".to_string(), &config.output.text)),
+                Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
+            }
+        }
+        _ => {
+            let tasks = parse_with_fzf();
+
+            let len = tasks.len();
+            
+            for (list, task) in tasks {
+                files::check_task(&task, &list).unwrap();
+            }
+
+            if len == 1 {
+                println!("{}", use_style("Task checked/uncheked".to_string(), &config.output.text));
+            } else {
+                println!("{}", use_style("Tasks checked/uncheked".to_string(), &config.output.text))
+            }
+        }
    }
 }
 

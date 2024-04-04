@@ -62,7 +62,7 @@ fn get_file_data() -> HashMap<String, Vec<Task>> {
             .expect("Unable to read file")
             .as_str()
     )
-    .expect("Unable to deserialize json") //TODO match maybe
+    .expect("Unable to deserialize json")
 }
 
 fn save_file_data(data: &HashMap<String, Vec<Task>>) {
@@ -203,39 +203,91 @@ pub fn remove_task(task: &str, list: &str) -> Result<(), String> {
 }
 
 //TODO: todo-app check
-//Реализовать автодополнение. На вход идет "Сделать", а программа
-//сперва ищет есть ли такое задание по основному листу, потом по другим.
 //Если ничего не найдено, то ищет все задания начинающиеся так же
 //(по-хорошему вообще реализовать поиск вхождений типа grep),
-//Эти задания выводятся в чат и индексируются. Ждем ввода пользователя, 
-//потом удаляем таску по индексу. Мейби стоит использовать что-то типа fzf
-//или вообще сделать на выбор.
-pub fn check_task(task: &str, list: Option<&str>) -> Result<bool, String> {
+//TODO: check и remove используют один и тот же код. Надо перекинуть
+//его в отдельную функцию
+pub fn check_task(task: &str, list: &str) -> Result<bool, String> {
     let mut data = get_file_data();
 
-    if let Some(list) = list {
-        if let Some(tasks) = data.get_mut(list) {
-            match tasks.iter_mut().find(|t| *t == task) {
-                Some(task) => {
-                    task.checked = !task.checked;
-                    Ok(task.checked)
+    let status = if let Some(tasks) = data.get_mut(list) {
+        match tasks.iter_mut().find(|t| *t == task) {
+            Some(task) => {
+                task.checked = !task.checked;
+                Ok(task.checked)
+            }
+            None => {
+                let mut tasks = Vec::new();
+                for (other_list, tasks_) in data.iter() {
+                    if other_list != list {
+                        if tasks_.iter().any(|t| t == task) {
+                            tasks.push(other_list.to_string());
+                        }
+                    }
                 }
-                None => {
-                    Err(TASK_NOT_FOUND.to_string())
+
+                match tasks.len() {
+                    0 => Err(TASK_NOT_FOUND.to_string()),
+                    1 => {
+                        println!("The task was found in another list: {}", tasks[0]);
+                        println!("Do you want to check it? [y/n]");
+                        let mut input = String::new();
+                        std::io::stdin().read_line(&mut input).expect("Unable to read line");
+                        if input.trim() == "y" {
+                            data.entry(tasks[0].clone()).and_modify(|u| {
+                                let task = u.iter_mut().find(|t| *t == task).unwrap();
+                                task.checked = !task.checked;
+                            });
+                            save_file_data(&data);
+                            Ok(true)
+                        } else {
+                            Err("".to_string())
+                        }
+                    },
+                    _ => {
+                        println!("The task was found in multiple lists:");
+                        for (i, list) in tasks.iter().enumerate() {
+                            println!("{}. {}", i + 1, list);
+                        }
+                        println!("Do you want to check it in any of them? [y/n]");
+                        let mut input = String::new();
+                        std::io::stdin().read_line(&mut input).expect("Unable to read line");
+
+                        if input.trim() != "y" {
+                            return Err("".to_string());
+                        }
+
+                        tasks.push("exit".to_string());
+                        let lists = select(tasks, Vec::from(["-m".to_string()])).unwrap();
+
+                        if lists[0] == "exit" {
+                            return Ok(false);
+                        }
+
+                        for list in lists {
+                            if list == "exit" {
+                                continue;
+                            }
+                            data.entry(list.clone()).and_modify(|u| {
+                                let task = u.iter_mut().find(|t| *t == task).unwrap();
+                                task.checked = !task.checked;
+                            });
+                        }
+
+                        save_file_data(&data);
+
+                        Ok(true)
+                    }
                 }
             }
-        } else {
-            Err(LIST_NOT_FOUND.to_string())
         }
     } else {
-        for tasks in data.values_mut() {
-            if let Some(task) = tasks.iter_mut().find(|t| *t == task) {
-                task.checked = !task.checked;
-                return Ok(task.checked);
-            }
-        };
-        Err(TASK_NOT_FOUND.to_string())
-    }
+        Err(LIST_NOT_FOUND.to_string())
+    };
+
+    save_file_data(&data);
+
+    status
 }
 
 
