@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, path::PathBuf};
 
-use crate::cli::select;
+use crate::cli::get_from_all_tasks;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Task {
@@ -45,7 +45,7 @@ impl std::fmt::Display for Task {
 }
 
 const LIST_NOT_FOUND: &str = "List not found";
-const TASK_NOT_FOUND: &str = "Task not found";
+pub const TASK_NOT_FOUND: &str = "Task not found";
 
 fn get_file_data() -> HashMap<String, Vec<Task>> {
     let mut file_dir = get_dir();
@@ -130,70 +130,22 @@ pub fn remove_task(task: &str, list: &str) -> Result<(), String> {
             save_file_data(&data);
             Ok(())
         } else {
-            let mut tasks = Vec::new();
-            for (other_list, tasks_) in data.iter() {
-                if other_list != list {
-                    if tasks_.iter().any(|t| t == task) {
-                        tasks.push(other_list.to_string());
-                    }
-                }
+            let lists = match get_from_all_tasks(&mut data, task, list, "check") {
+                Ok(lists) => lists,
+                Err(e) => return Err(e),
+            };
+
+            for list in lists {
+                data.entry(list).and_modify(|u| {
+                    u.remove(
+                        u.iter().position(|t| t == task).unwrap()
+                    );
+                });
             }
 
-            match tasks.len() {
-                0 => Err(TASK_NOT_FOUND.to_string()),
-                1 => {
-                    println!("The task was found in another list: {}", tasks[0]);
-                    println!("Do you want to remove it? [y/n]");
-                    let mut input = String::new();
-                    std::io::stdin().read_line(&mut input).expect("Unable to read line");
-                    if input.trim() == "y" {
-                        data.entry(tasks[0].clone()).and_modify(|u| {
-                            u.remove(
-                                u.iter().position(|t| t == task).unwrap()
-                            );
-                        });
-                        save_file_data(&data);
-                        Ok(())
-                    } else {
-                        Err("".to_string())
-                    }
-                },
-                _ => {
-                    println!("The task was found in multiple lists:");
-                    for (i, list) in tasks.iter().enumerate() {
-                        println!("{}. {}", i + 1, list);
-                    }
-                    println!("Do you want to remove it from any of them? [y/n]");
-                    let mut input = String::new();
-                    std::io::stdin().read_line(&mut input).expect("Unable to read line");
+            save_file_data(&data);
 
-                    if input.trim() != "y" {
-                        return Err("".to_string());
-                    }
-
-                    tasks.push("exit".to_string());
-                    let lists = select(tasks, Vec::from(["-m".to_string()])).unwrap();
-
-                    if lists[0] == "exit" {
-                        return Ok(());
-                    }
-
-                    for list in lists {
-                        if list == "exit" {
-                            continue;
-                        }
-                        data.entry(list.clone()).and_modify(|u| {
-                            u.remove(
-                                u.iter().position(|t| t == task).unwrap()
-                            );
-                        });
-                    }
-
-                    save_file_data(&data);
-
-                    Ok(())
-                }
-            }
+            Ok(())
 
 
         }
@@ -205,8 +157,6 @@ pub fn remove_task(task: &str, list: &str) -> Result<(), String> {
 //TODO: todo-app check
 //Если ничего не найдено, то ищет все задания начинающиеся так же
 //(по-хорошему вообще реализовать поиск вхождений типа grep),
-//TODO: check и remove используют один и тот же код. Надо перекинуть
-//его в отдельную функцию
 pub fn check_task(task: &str, list: &str) -> Result<bool, String> {
     let mut data = get_file_data();
 
@@ -217,68 +167,21 @@ pub fn check_task(task: &str, list: &str) -> Result<bool, String> {
                 Ok(task.checked)
             }
             None => {
-                let mut tasks = Vec::new();
-                for (other_list, tasks_) in data.iter() {
-                    if other_list != list {
-                        if tasks_.iter().any(|t| t == task) {
-                            tasks.push(other_list.to_string());
-                        }
-                    }
+                let lists = match get_from_all_tasks(&mut data, task, list, "check") {
+                    Ok(lists) => lists,
+                    Err(e) => return Err(e),
+                };
+
+                for list in lists {
+                    data.entry(list).and_modify(|u| {
+                        let task = u.iter_mut().find(|t| *t == task).unwrap();
+                        task.checked = !task.checked;
+                    });
                 }
 
-                match tasks.len() {
-                    0 => Err(TASK_NOT_FOUND.to_string()),
-                    1 => {
-                        println!("The task was found in another list: {}", tasks[0]);
-                        println!("Do you want to check it? [y/n]");
-                        let mut input = String::new();
-                        std::io::stdin().read_line(&mut input).expect("Unable to read line");
-                        if input.trim() == "y" {
-                            data.entry(tasks[0].clone()).and_modify(|u| {
-                                let task = u.iter_mut().find(|t| *t == task).unwrap();
-                                task.checked = !task.checked;
-                            });
-                            save_file_data(&data);
-                            Ok(true)
-                        } else {
-                            Err("".to_string())
-                        }
-                    },
-                    _ => {
-                        println!("The task was found in multiple lists:");
-                        for (i, list) in tasks.iter().enumerate() {
-                            println!("{}. {}", i + 1, list);
-                        }
-                        println!("Do you want to check it in any of them? [y/n]");
-                        let mut input = String::new();
-                        std::io::stdin().read_line(&mut input).expect("Unable to read line");
+                save_file_data(&data);
 
-                        if input.trim() != "y" {
-                            return Err("".to_string());
-                        }
-
-                        tasks.push("exit".to_string());
-                        let lists = select(tasks, Vec::from(["-m".to_string()])).unwrap();
-
-                        if lists[0] == "exit" {
-                            return Ok(false);
-                        }
-
-                        for list in lists {
-                            if list == "exit" {
-                                continue;
-                            }
-                            data.entry(list.clone()).and_modify(|u| {
-                                let task = u.iter_mut().find(|t| *t == task).unwrap();
-                                task.checked = !task.checked;
-                            });
-                        }
-
-                        save_file_data(&data);
-
-                        Ok(true)
-                    }
-                }
+                Ok(true)
             }
         }
     } else {

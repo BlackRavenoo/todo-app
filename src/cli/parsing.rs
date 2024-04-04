@@ -91,14 +91,21 @@ pub fn check(task: Option<String>, list: Option<String>, config: Settings) {
 
             let len = tasks.len();
             
-            for (list, task) in tasks {
-                files::check_task(&task, &list).unwrap();
-            }
-
+            
             if len == 1 {
-                println!("{}", use_style("Task checked/uncheked".to_string(), &config.output.text));
+                match files::check_task(&tasks[0].1, &tasks[0].0) {
+                    Ok(true) => println!("{}", use_style("Task checked".to_string(), &config.output.text)),
+                    Ok(false) => println!("{}", use_style("Task unchecked".to_string(), &config.output.text)),
+                    Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
+                }
             } else {
-                println!("{}", use_style("Tasks checked/uncheked".to_string(), &config.output.text))
+                for (list, task) in tasks {
+                    match files::check_task(&task, &list) {
+                        Ok(true) => println!("{}", use_style(format!("\"{}\" checked", task), &config.output.text)),
+                        Ok(false) => println!("{}", use_style(format!("\"{}\" unchecked", task), &config.output.text)),
+                        Err(e) => eprintln!("{}", use_style(e, &config.output.err)),
+                    };
+                }
             }
         }
    }

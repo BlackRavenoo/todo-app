@@ -2,8 +2,6 @@ use std::{error::Error, process::exit};
 
 use clap::{arg, command, ArgMatches, Command};
 
-const DEFAULT: &str = "default"; //Переделать все DEFAULT на чтение из файла
-
 #[derive(Debug)]
 pub enum Subcommands {
     Add(Option<String>, Option<String>),
@@ -30,7 +28,6 @@ pub fn get_args() -> Result<Config, Box<dyn Error>> {
                 .arg(
                     arg!(list_name: <LIST> "List name")
                         .required(false)
-                        .default_value(DEFAULT),
                 )
                 .about("Add a new task"),
         )
@@ -43,17 +40,15 @@ pub fn get_args() -> Result<Config, Box<dyn Error>> {
                 .arg(
                     arg!(list_name: <LIST> "List name")
                         .required(false)
-                        .default_value(DEFAULT)
                 )
                 .about("Remove a task"),
         )
         .subcommand(
             Command::new("check")
-                .arg(arg!(task_name: <TASK> "Task name"))
+                .arg(arg!(task_name: <TASK> "Task name").required(false))
                 .arg(
                     arg!(list_name: <LIST> "List name")
                         .required(false)
-                        .default_value(DEFAULT),
                 )
                 .about("Check/uncheck task"),
         )
